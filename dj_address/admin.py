@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
-from address.models import *
+from dj_address.models import *
 
 
 class UnidentifiedListFilter(SimpleListFilter):

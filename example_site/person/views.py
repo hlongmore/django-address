@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from address.models import Address
+from dj_address.models import Address
 
 from .forms import PersonForm
 

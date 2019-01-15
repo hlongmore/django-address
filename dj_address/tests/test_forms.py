@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.forms import ValidationError, Form
-from address.forms import AddressField, AddressWidget
-from address.models import Address
+from dj_address.forms import AddressField, AddressWidget
+from dj_address.models import Address
 
 
 class TestForm(Form):

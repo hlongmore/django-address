@@ -1,5 +1,5 @@
 from django import forms
-from address.forms import AddressField
+from dj_address.forms import AddressField
 
 
 class PersonForm(forms.Form):

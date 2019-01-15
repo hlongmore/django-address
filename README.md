@@ -26,7 +26,7 @@ Then, add `address` to your `INSTALLED_APPS` list in `settings.py`:
 ```python
 INSTALLED_APPS = (
     ...
-    'address',
+    dj_address,
 )
 ```
 

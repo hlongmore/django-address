@@ -154,7 +154,7 @@ def to_python(value):
             return Address.objects.create(raw=value['raw'])
 
     # Not in any of the formats I recognise.
-    raise ValidationError('Invalid address value.')
+    raise ValidationError('Invalid dj_address value.')
 
 ##
 # A country.
@@ -303,14 +303,14 @@ class AddressDescriptor(ForwardManyToOneDescriptor):
 
 
 class AddressField(models.ForeignKey):
-    description = 'An address'
+    description = 'An dj_address'
 
     def __init__(self, *args, **kwargs):
-        kwargs['to'] = 'address.Address'
+        kwargs['to'] = 'dj_address.Address'
         super(AddressField, self).__init__(*args, **kwargs)
 
     def contribute_to_class(self, cls, name, virtual_only=False):
-        from address.compat import compat_contribute_to_class
+        from dj_address.compat import compat_contribute_to_class
 
         compat_contribute_to_class(self, cls, name, virtual_only)
         # super(ForeignObject, self).contribute_to_class(cls, name, virtual_only=virtual_only)
