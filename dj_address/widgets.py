@@ -30,7 +30,7 @@ class AddressWidget(forms.TextInput):
         js = [
             'https://maps.googleapis.com/maps/api/js?libraries=places&key=%s' % settings.GOOGLE_API_KEY,
             'js/jquery.geocomplete.min.js',
-            'dj_address/js/dj_address.js',
+            'address/js/address.js',
         ]
 
         if JQUERY_URL:
@@ -52,7 +52,7 @@ class AddressWidget(forms.TextInput):
     def __init__(self, *args, **kwargs):
         attrs = kwargs.get('attrs', {})
         classes = attrs.get('class', '')
-        classes += (' ' if classes else '') + 'dj_address'
+        classes += (' ' if classes else '') + 'address'
         attrs['class'] = classes
         kwargs['attrs'] = attrs
         super(AddressWidget, self).__init__(*args, **kwargs)
