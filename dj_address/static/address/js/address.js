@@ -14,6 +14,7 @@ $(function () {
 					'locality',
 					'postal_code',
 					'route',
+					'subpremise',
 					'street_number',
 					'state',
 					'state_code',

@@ -36,6 +36,7 @@ def _to_python(value):
     postal_code = value.get('postal_code', '')
     street_number = value.get('street_number', '')
     route = value.get('route', '')
+    subpremise = value.get('subpremise', '')
     formatted = value.get('formatted', '')
     latitude = value.get('latitude', None)
     longitude = value.get('longitude', None)
@@ -89,18 +90,20 @@ def _to_python(value):
 
     # Handle the address.
     try:
-        if not (street_number or route or locality):
+        if not (street_number or route or locality or subpremise):
             address_obj = Address.objects.get(raw=raw)
         else:
             address_obj = Address.objects.get(
                 street_number=street_number,
                 route=route,
+                subpremise=subpremise,
                 locality=locality_obj
             )
     except Address.DoesNotExist:
         address_obj = Address(
             street_number=street_number,
             route=route,
+            subpremise=subpremise,
             raw=raw,
             locality=locality_obj,
             formatted=formatted,
@@ -238,6 +241,7 @@ class Locality(models.Model):
 class Address(models.Model):
     street_number = models.CharField(max_length=20, blank=True)
     route = models.CharField(max_length=100, blank=True)
+    subpremise = models.CharField(max_length=32, null=True, blank=True)
     locality = models.ForeignKey(Locality, on_delete=models.CASCADE, related_name='addresses', blank=True, null=True)
     raw = models.CharField(max_length=200)
     formatted = models.CharField(max_length=200, blank=True)
@@ -246,7 +250,7 @@ class Address(models.Model):
 
     class Meta:
         verbose_name_plural = 'Addresses'
-        ordering = ('locality', 'route', 'street_number')
+        ordering = ('locality', 'route', 'street_number', 'subpremise')
         # unique_together = ('locality', 'route', 'street_number')
 
     def __str__(self):
@@ -259,6 +263,11 @@ class Address(models.Model):
             if self.route:
                 if txt:
                     txt += ' %s' % self.route
+            if self.subpremise:
+                if txt:
+                    # The USPS prefers the actual type, e.g. STE, APT, etc., but
+                    # they'll accept # if it is not known.
+                    txt += ' #%s' % self.subpremise
             locality = '%s' % self.locality
             if txt and locality:
                 txt += ', '
@@ -275,6 +284,7 @@ class Address(models.Model):
         ad = dict(
             street_number=self.street_number,
             route=self.route,
+            subpremise=self.subpremise,
             raw=self.raw,
             formatted=self.formatted,
             latitude=self.latitude if self.latitude else '',
@@ -300,7 +310,6 @@ class AddressDescriptor(ForwardManyToOneDescriptor):
 ##
 # A field for addresses in other models.
 ##
-
 
 class AddressField(models.ForeignKey):
     description = 'An dj_address'
