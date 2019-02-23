@@ -1,18 +1,12 @@
 import logging
-import sys
 
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.safestring import mark_safe
 
 from .models import Address, to_python
 from .widgets import AddressWidget
 
-if sys.version > '3':
-    long = int
-    basestring = (str, bytes)
-    unicode = str
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +24,9 @@ class AddressField(forms.ModelChoiceField):
         super(AddressField, self).__init__(*args, **kwargs)
 
     def to_python(self, value):
-
         # Treat `None`s and empty strings as empty.
         if value is None or value == '':
             return None
-
         # Check for garbage in the lat/lng components.
         for field in ['latitude', 'longitude']:
             if field in value:
@@ -49,5 +41,4 @@ class AddressField(forms.ModelChoiceField):
                         )
                 else:
                     value[field] = None
-
         return to_python(value)

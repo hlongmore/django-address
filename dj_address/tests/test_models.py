@@ -1,16 +1,8 @@
 from django.test import TestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
-from django.db.models import Model
-from dj_address.models import *
+from dj_address.models import Address, Country, State, Locality, AddressField
 from dj_address.models import to_python
-
-# Python 3 fixes.
-import sys
-if sys.version > '3':
-    long = int
-    basestring = (str, bytes)
-    unicode = str
 
 
 class CountryTestCase(TestCase):
@@ -30,8 +22,8 @@ class CountryTestCase(TestCase):
     def test_unique_name(self):
         self.assertRaises(IntegrityError, Country.objects.create, name='Australia', code='**')
 
-    def test_unicode(self):
-        self.assertEqual(unicode(self.au), u'Australia')
+    def test_str(self):
+        self.assertEqual(str(self.au), 'Australia')
 
 
 class StateTestCase(TestCase):
@@ -61,9 +53,9 @@ class StateTestCase(TestCase):
         State.objects.create(name='Tasmania', country=self.uk)
         self.assertRaises(IntegrityError, State.objects.create, name='Tasmania', country=self.au)
 
-    def test_unicode(self):
-        self.assertEqual(unicode(self.vic), u'Victoria, Australia')
-        self.assertEqual(unicode(self.empty), u'Australia')
+    def test_str(self):
+        self.assertEqual(str(self.vic), 'Victoria, Australia')
+        self.assertEqual(str(self.empty), 'Australia')
 
 
 class LocalityTestCase(TestCase):
@@ -100,10 +92,10 @@ class LocalityTestCase(TestCase):
         Locality.objects.create(name='Melbourne', state=self.au_vic)
         self.assertRaises(IntegrityError, Locality.objects.create, name='Melbourne', state=self.au_vic)
 
-    def test_unicode(self):
-        self.assertEqual(unicode(self.au_vic_mel), u'Melbourne, Victoria 3000, Australia')
-        self.assertEqual(unicode(self.au_vic_ftz), u'Fitzroy, Victoria, Australia')
-        self.assertEqual(unicode(self.au_vic_empty), u'Victoria, Australia')
+    def test_str(self):
+        self.assertEqual(str(self.au_vic_mel), 'Melbourne, Victoria 3000, Australia')
+        self.assertEqual(str(self.au_vic_ftz), 'Fitzroy, Victoria, Australia')
+        self.assertEqual(str(self.au_vic_empty), 'Victoria, Australia')
 
 
 class AddressTestCase(TestCase):
@@ -155,11 +147,11 @@ class AddressTestCase(TestCase):
     #         street_number='10', route='Other Street', locality=self.au_vic_mel
     #     )
 
-    def test_unicode(self):
-        self.assertEqual(unicode(self.ad1), u'1 Some Street, Melbourne, Victoria 3000, Australia')
-        self.assertEqual(unicode(self.ad_empty), u'Northcote, Victoria 3070, Australia')
-        self.assertEqual(unicode(self.ad_sublocality),
-                         u'1 Some Street #300, Northcote, Victoria 3070, Australia')
+    def test_str(self):
+        self.assertEqual(str(self.ad1), '1 Some Street, Melbourne, Victoria 3000, Australia')
+        self.assertEqual(str(self.ad_empty), 'Northcote, Victoria 3070, Australia')
+        self.assertEqual(str(self.ad_sublocality),
+                         '1 Some Street #300, Northcote, Victoria 3070, Australia')
 
 
 class AddressFieldTestCase(TestCase):

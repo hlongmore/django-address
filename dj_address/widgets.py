@@ -1,15 +1,10 @@
-import sys
-
+import django
 from django import forms
 from django.conf import settings
 from django.utils.safestring import mark_safe
 
 from .models import Address
 
-if sys.version > '3':
-    long = int
-    basestring = (str, bytes)
-    unicode = str
 
 USE_DJANGO_JQUERY = getattr(settings, 'USE_DJANGO_JQUERY', False)
 JQUERY_URL = getattr(settings, 'JQUERY_URL', 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js')
@@ -59,32 +54,29 @@ class AddressWidget(forms.TextInput):
         super(AddressWidget, self).__init__(*args, **kwargs)
 
     def render(self, name, value, attrs=None, **kwargs):
-
         # Can accept None, a dictionary of values or an Address object.
         if value in (None, ''):
             ad = {}
         elif isinstance(value, dict):
             ad = value
-        elif isinstance(value, (int, long)):
+        elif isinstance(value, int):
             ad = Address.objects.get(pk=value)
             ad = ad.as_dict()
         else:
             ad = value.as_dict()
 
-        # Generate the elements. We should create a suite of hidden fields
-        # For each individual component, and a visible field for the raw
-        # input. Begin by generating the raw input.
-        elems = [super(AddressWidget, self).render(name, ad.get('formatted', None), attrs, **kwargs)]
-
-        # Now add the hidden fields.
+        # Add a visible field for the raw input, and a suite of hidden fields
+        # for each individual component.
+        elems = [
+            super(AddressWidget, self).render(name, ad.get('formatted', None), attrs, **kwargs)
+        ]
         elems.append('<div id="%s_components">' % name)
         for com in self.components:
             elems.append('<input type="hidden" name="%s_%s" data-geo="%s" value="%s" />' % (
                 name, com[0], com[1], ad.get(com[0], ''))
             )
         elems.append('</div>')
-
-        return mark_safe(unicode('\n'.join(elems)))
+        return mark_safe('\n'.join(elems))
 
     def value_from_datadict(self, data, files, name):
         raw = data.get(name, '')

@@ -1,22 +1,13 @@
 import logging
-import sys
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.fields.related import ForeignObject
-from django.utils.encoding import python_2_unicode_compatible
 
-try:
-    from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor
-except ImportError:
-    from django.db.models.fields.related import ReverseSingleRelatedObjectDescriptor as ForwardManyToOneDescriptor
+from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor
+
 
 logger = logging.getLogger(__name__)
 
-if sys.version > '3':
-    long = int
-    basestring = (str, bytes)
-    unicode = str
 
 __all__ = ['Country', 'State', 'Locality', 'Address', 'AddressField']
 
@@ -41,7 +32,6 @@ def _to_python(value):
     latitude = value.get('latitude', None)
     longitude = value.get('longitude', None)
 
-    # If there is no value (empty raw) then return None.
     if not raw:
         return None
 
@@ -110,61 +100,32 @@ def _to_python(value):
             latitude=latitude,
             longitude=longitude,
         )
-
         # If "formatted" is empty try to construct it from other values.
         if not address_obj.formatted:
-            address_obj.formatted = unicode(address_obj)
-
-        # Need to save.
+            address_obj.formatted = str(address_obj)
         address_obj.save()
-
-    # Done.
     return address_obj
-
-##
-# Convert a dictionary to an address.
-##
 
 
 def to_python(value):
-
-    # Keep `None`s.
-    if value is None:
-        return None
-
-    # Is it already an address object?
-    if isinstance(value, Address):
+    """Convert a dictionary to an address."""
+    # If value is None, or of type Address or int, it should be returned as-is.
+    # Int because it is likely a model primary key. Strings are raw values, and
+    # dicts are assumed to contain address components. Anything else is invalid.
+    if value is None or isinstance(value, Address) or isinstance(value, int):
         return value
-
-    # If we have an integer, assume it is a model primary key. This is mostly for
-    # Django being a cunt.
-    elif isinstance(value, (int, long)):
-        return value
-
-    # A string is considered a raw value.
-    elif isinstance(value, basestring):
+    elif isinstance(value, (str, bytes)):
         obj = Address(raw=value)
         obj.save()
         return obj
-
-    # A dictionary of named address components.
     elif isinstance(value, dict):
-
-        # Attempt a conversion.
         try:
             return _to_python(value)
         except InconsistentDictError:
             return Address.objects.create(raw=value['raw'])
-
-    # Not in any of the formats I recognise.
     raise ValidationError('Invalid dj_address value.')
 
-##
-# A country.
-##
 
-
-@python_2_unicode_compatible
 class Country(models.Model):
     name = models.CharField(max_length=40, unique=True, blank=True)
     code = models.CharField(max_length=2, blank=True)  # not unique as there are duplicates (IT)
@@ -176,13 +137,9 @@ class Country(models.Model):
     def __str__(self):
         return '%s' % (self.name or self.code)
 
-##
-# A state. Google refers to this as `administration_level_1`.
-##
 
-
-@python_2_unicode_compatible
 class State(models.Model):
+    """A state. Google refers to this as `administration_level_1`."""
     name = models.CharField(max_length=165, blank=True)
     code = models.CharField(max_length=3, blank=True)
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='states')
@@ -202,13 +159,9 @@ class State(models.Model):
     def to_str(self):
         return '%s' % (self.name or self.code)
 
-##
-# A locality (suburb).
-##
 
-
-@python_2_unicode_compatible
 class Locality(models.Model):
+    """A locality (suburb)"""
     name = models.CharField(max_length=165, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='localities')
@@ -231,18 +184,20 @@ class Locality(models.Model):
             txt += ', %s' % cntry
         return txt
 
-##
-# An address. If for any reason we are unable to find a matching
-# decomposed address we will store the raw address string in `raw`.
-##
 
-
-@python_2_unicode_compatible
 class Address(models.Model):
+    """An address. If for any reason we are unable to find a matching decomposed
+     address we will store the raw address string in `raw`. """
     street_number = models.CharField(max_length=20, blank=True)
     route = models.CharField(max_length=100, blank=True)
     subpremise = models.CharField(max_length=32, null=True, blank=True)
-    locality = models.ForeignKey(Locality, on_delete=models.CASCADE, related_name='addresses', blank=True, null=True)
+    locality = models.ForeignKey(
+        Locality,
+        on_delete=models.CASCADE,
+        related_name='addresses',
+        blank=True,
+        null=True,
+    )
     raw = models.CharField(max_length=200)
     formatted = models.CharField(max_length=200, blank=True)
     latitude = models.FloatField(blank=True, null=True)
@@ -255,25 +210,25 @@ class Address(models.Model):
 
     def __str__(self):
         if self.formatted != '':
-            txt = '%s' % self.formatted
+            txt = f'{self.formatted}'
         elif self.locality:
             txt = ''
             if self.street_number:
-                txt = '%s' % self.street_number
+                txt += f'{self.street_number}'
             if self.route:
                 if txt:
-                    txt += ' %s' % self.route
+                    txt += f' {self.route}'
             if self.subpremise:
                 if txt:
                     # The USPS prefers the actual type, e.g. STE, APT, etc., but
-                    # they'll accept # if it is not known.
-                    txt += ' #%s' % self.subpremise
-            locality = '%s' % self.locality
+                    # they'll accept '#' if it is not known.
+                    txt += f' #{self.subpremise}'
+            locality = f'{self.locality}'
             if txt and locality:
                 txt += ', '
             txt += locality
         else:
-            txt = '%s' % self.raw
+            txt = f'{self.raw}'
         return txt
 
     def clean(self):
@@ -307,11 +262,9 @@ class AddressDescriptor(ForwardManyToOneDescriptor):
     def __set__(self, inst, value):
         super(AddressDescriptor, self).__set__(inst, to_python(value))
 
-##
-# A field for addresses in other models.
-##
 
 class AddressField(models.ForeignKey):
+    """A field for addresses in other models."""
     description = 'An dj_address'
 
     def __init__(self, *args, **kwargs):
@@ -319,12 +272,8 @@ class AddressField(models.ForeignKey):
         kwargs['on_delete'] = models.PROTECT
         super(AddressField, self).__init__(*args, **kwargs)
 
-    def contribute_to_class(self, cls, name, virtual_only=False):
-        from dj_address.compat import compat_contribute_to_class
-
-        compat_contribute_to_class(self, cls, name, virtual_only)
-        # super(ForeignObject, self).contribute_to_class(cls, name, virtual_only=virtual_only)
-
+    def contribute_to_class(self, cls, name, private_only=False, **kwargs):
+        super().contribute_to_class(cls, name, private_only=private_only, **kwargs)
         setattr(cls, self.name, AddressDescriptor(self))
 
     # def deconstruct(self):
