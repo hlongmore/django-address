@@ -51,6 +51,24 @@ class AddressFieldTestCase(TestCase):
         res = self.field.to_python(input)
         self.assertEqual(res.locality.name, 'Brooklyn')
 
+    def test_to_python_subpremise(self):
+        input = {
+            'country': 'United States',
+            'country_code': 'US',
+            'state': 'New York',
+            'state_code': 'NY',
+            'locality': '',
+            'sublocality': 'Brooklyn',
+            'postal_code': '11201',
+            'route': 'Joralemon St',
+            'street_number': '209',
+            'subpremise': '300',
+            'raw': '209 Joralemon Street #300, Brooklyn, NY, United States'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual(res.locality.name, 'Brooklyn')
+        self.assertEqual(res.subpremise, '300')
+
     # TODO: Fix
     # def test_to_python_empty_state(self):
     #     val = self.field.to_python(self.missing_state)

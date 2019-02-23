@@ -131,6 +131,9 @@ class AddressTestCase(TestCase):
         self.ad3 = Address.objects.create(street_number='1', route='Some Street', locality=self.au_vic_nco,
                                           raw='1 Some Street, Northcote, Victoria')
         self.ad_empty = Address.objects.create(locality=self.au_vic_nco, raw='Northcote, Victoria')
+        self.ad_sublocality = Address.objects.create(
+            street_number='1', route='Some Street', subpremise='300', locality=self.au_vic_nco,
+            raw='1 Some Street #300, Northcote, Victoria')
 
     def test_required_raw(self):
         obj = Address.objects.create()
@@ -138,11 +141,12 @@ class AddressTestCase(TestCase):
 
     def test_ordering(self):
         qs = Address.objects.all()
-        self.assertEqual(qs.count(), 4)
+        self.assertEqual(qs.count(), 5)
         self.assertEqual(qs[0].route, 'Other Street')
         self.assertEqual(qs[1].route, 'Some Street')
         self.assertEqual(qs[2].route, '')
         self.assertEqual(qs[3].route, 'Some Street')
+        self.assertEqual(qs[4].subpremise, '300')
 
     # def test_unique_street_address_locality(self):
     #     Address.objects.create(street_number='10', route='Other Street', locality=self.au_vic_nco)
@@ -154,12 +158,11 @@ class AddressTestCase(TestCase):
     def test_unicode(self):
         self.assertEqual(unicode(self.ad1), u'1 Some Street, Melbourne, Victoria 3000, Australia')
         self.assertEqual(unicode(self.ad_empty), u'Northcote, Victoria 3070, Australia')
+        self.assertEqual(unicode(self.ad_sublocality),
+                         u'1 Some Street #300, Northcote, Victoria 3070, Australia')
 
 
 class AddressFieldTestCase(TestCase):
-
-    class TestModel(object):
-        address = AddressField()
 
     def setUp(self):
         self.ad1_dict = {
@@ -173,19 +176,45 @@ class AddressFieldTestCase(TestCase):
             'country': 'Australia',
             'country_code': 'AU'
         }
-        self.test = self.TestModel()
+        self.address = AddressField()
 
     def test_assignment_from_dict(self):
-        self.test.address = to_python(self.ad1_dict)
-        self.assertEqual(self.test.address.raw, self.ad1_dict['raw'])
-        self.assertEqual(self.test.address.street_number, self.ad1_dict['street_number'])
-        self.assertEqual(self.test.address.route, self.ad1_dict['route'])
-        self.assertEqual(self.test.address.locality.name, self.ad1_dict['locality'])
-        self.assertEqual(self.test.address.locality.postal_code, self.ad1_dict['postal_code'])
-        self.assertEqual(self.test.address.locality.state.name, self.ad1_dict['state'])
-        self.assertEqual(self.test.address.locality.state.code, self.ad1_dict['state_code'])
-        self.assertEqual(self.test.address.locality.state.country.name, self.ad1_dict['country'])
-        self.assertEqual(self.test.address.locality.state.country.code, self.ad1_dict['country_code'])
+        self.address = to_python(self.ad1_dict)
+        self.assertEqual(self.address.raw, self.ad1_dict['raw'])
+        self.assertEqual(self.address.street_number, self.ad1_dict['street_number'])
+        self.assertEqual(self.address.route, self.ad1_dict['route'])
+        self.assertEqual(self.address.subpremise, '')
+        self.assertEqual(self.address.locality.name, self.ad1_dict['locality'])
+        self.assertEqual(self.address.locality.postal_code, self.ad1_dict['postal_code'])
+        self.assertEqual(self.address.locality.state.name, self.ad1_dict['state'])
+        self.assertEqual(self.address.locality.state.code, self.ad1_dict['state_code'])
+        self.assertEqual(self.address.locality.state.country.name, self.ad1_dict['country'])
+        self.assertEqual(self.address.locality.state.country.code, self.ad1_dict['country_code'])
+
+    def test_assignment_from_dict_with_subpremise(self):
+        ad2_dict = {
+            'raw': '10855 S River Front Pkwy #300, South Jordan, UT, US',
+            'street_number': '10855',
+            'route': 'River Front Pkwy',
+            'subpremise': '300',
+            'locality': 'South Jordan',
+            'postal_code': '84095',
+            'state': 'Utah',
+            'state_code': 'UT',
+            'country': 'United States',
+            'country_code': 'US'
+        }
+        subpremise_address = to_python(ad2_dict)
+        self.assertEqual(subpremise_address.raw, ad2_dict['raw'])
+        self.assertEqual(subpremise_address.street_number, ad2_dict['street_number'])
+        self.assertEqual(subpremise_address.route, ad2_dict['route'])
+        self.assertEqual(subpremise_address.subpremise, ad2_dict['subpremise'])
+        self.assertEqual(subpremise_address.locality.name, ad2_dict['locality'])
+        self.assertEqual(subpremise_address.locality.postal_code, ad2_dict['postal_code'])
+        self.assertEqual(subpremise_address.locality.state.name, ad2_dict['state'])
+        self.assertEqual(subpremise_address.locality.state.code, ad2_dict['state_code'])
+        self.assertEqual(subpremise_address.locality.state.country.name, ad2_dict['country'])
+        self.assertEqual(subpremise_address.locality.state.country.code, ad2_dict['country_code'])
 
     def test_assignment_from_dict_no_country(self):
         ad = {
@@ -195,11 +224,11 @@ class AddressFieldTestCase(TestCase):
             'locality': 'Northcote',
             'state': 'Victoria',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, '')
-        self.assertEqual(self.test.address.route, '')
-        self.assertEqual(self.test.address.locality, None)
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, '')
+        self.assertEqual(self.address.route, '')
+        self.assertEqual(self.address.locality, None)
 
     def test_assignment_from_dict_no_state(self):
         ad = {
@@ -207,11 +236,11 @@ class AddressFieldTestCase(TestCase):
             'locality': 'Northcote',
             'country': 'Australia',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, '')
-        self.assertEqual(self.test.address.route, '')
-        self.assertEqual(self.test.address.locality, None)
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, '')
+        self.assertEqual(self.address.route, '')
+        self.assertEqual(self.address.locality, None)
 
     def test_assignment_from_dict_no_locality(self):
         ad = {
@@ -221,11 +250,11 @@ class AddressFieldTestCase(TestCase):
             'state': 'Victoria',
             'country': 'Australia',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, '')
-        self.assertEqual(self.test.address.route, '')
-        self.assertEqual(self.test.address.locality, None)
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, '')
+        self.assertEqual(self.address.route, '')
+        self.assertEqual(self.address.locality, None)
 
     def test_assignment_from_dict_only_address(self):
         ad = {
@@ -233,11 +262,11 @@ class AddressFieldTestCase(TestCase):
             'street_number': '1',
             'route': 'Somewhere Street',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, ad['street_number'])
-        self.assertEqual(self.test.address.route, ad['route'])
-        self.assertEqual(self.test.address.locality, None)
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, ad['street_number'])
+        self.assertEqual(self.address.route, ad['route'])
+        self.assertEqual(self.address.locality, None)
 
     def test_assignment_from_dict_duplicate_country_code(self):
         ad = {
@@ -249,14 +278,14 @@ class AddressFieldTestCase(TestCase):
             'country': 'Australia',
             'country_code': 'Australia',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, '1')
-        self.assertEqual(self.test.address.route, 'Somewhere Street')
-        self.assertEqual(self.test.address.locality.name, 'Northcote')
-        self.assertEqual(self.test.address.locality.state.name, 'Victoria')
-        self.assertEqual(self.test.address.locality.state.country.name, 'Australia')
-        self.assertEqual(self.test.address.locality.state.country.code, '')
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, '1')
+        self.assertEqual(self.address.route, 'Somewhere Street')
+        self.assertEqual(self.address.locality.name, 'Northcote')
+        self.assertEqual(self.address.locality.state.name, 'Victoria')
+        self.assertEqual(self.address.locality.state.country.name, 'Australia')
+        self.assertEqual(self.address.locality.state.country.code, '')
 
     def test_assignment_from_dict_duplicate_state_code(self):
         ad = {
@@ -268,14 +297,14 @@ class AddressFieldTestCase(TestCase):
             'state_code': 'Victoria',
             'country': 'Australia',
         }
-        self.test.address = to_python(ad)
-        self.assertEqual(self.test.address.raw, ad['raw'])
-        self.assertEqual(self.test.address.street_number, '1')
-        self.assertEqual(self.test.address.route, 'Somewhere Street')
-        self.assertEqual(self.test.address.locality.name, 'Northcote')
-        self.assertEqual(self.test.address.locality.state.name, 'Victoria')
-        self.assertEqual(self.test.address.locality.state.code, '')
-        self.assertEqual(self.test.address.locality.state.country.name, 'Australia')
+        self.address = to_python(ad)
+        self.assertEqual(self.address.raw, ad['raw'])
+        self.assertEqual(self.address.street_number, '1')
+        self.assertEqual(self.address.route, 'Somewhere Street')
+        self.assertEqual(self.address.locality.name, 'Northcote')
+        self.assertEqual(self.address.locality.state.name, 'Victoria')
+        self.assertEqual(self.address.locality.state.code, '')
+        self.assertEqual(self.address.locality.state.country.name, 'Australia')
 
     def test_assignment_from_dict_invalid_country_code(self):
         ad = {
@@ -302,8 +331,8 @@ class AddressFieldTestCase(TestCase):
         self.assertRaises(ValueError, to_python, ad)
 
     def test_assignment_from_string(self):
-        self.test.address = to_python(self.ad1_dict['raw'])
-        self.assertEqual(self.test.address.raw, self.ad1_dict['raw'])
+        self.address = to_python(self.ad1_dict['raw'])
+        self.assertEqual(self.address.raw, self.ad1_dict['raw'])
 
     # def test_save(self):
     #     self.test.address = self.ad1_dict
