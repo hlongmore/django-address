@@ -316,6 +316,7 @@ class AddressField(models.ForeignKey):
 
     def __init__(self, *args, **kwargs):
         kwargs['to'] = 'dj_address.Address'
+        kwargs['on_delete'] = models.PROTECT
         super(AddressField, self).__init__(*args, **kwargs)
 
     def contribute_to_class(self, cls, name, virtual_only=False):
