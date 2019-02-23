@@ -97,7 +97,7 @@ class LocalityTestCase(TestCase):
         self.assertEqual(qs[4].name, 'Melbourne')
 
     def test_unique_name_state(self):
-        Locality.objects.create(name='Melbourne', state=self.au_qld)
+        Locality.objects.create(name='Melbourne', state=self.au_vic)
         self.assertRaises(IntegrityError, Locality.objects.create, name='Melbourne', state=self.au_vic)
 
     def test_unicode(self):

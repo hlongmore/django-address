@@ -80,8 +80,25 @@ class AddressFieldTestCase(TestCase):
         self.assertEqual(res.raw, 'Someplace')
 
     def test_render(self):
-        html = self.form.as_table()
-        # TODO: Check html
+        actual = self.form.as_table()
+        expected = """\
+<tr><th><label for="id_address">Address:</label></th><td><input type="text" name="address" class="address" required id="id_address">
+<div id="address_components">
+<input type="hidden" name="address_country" data-geo="country" value="" />
+<input type="hidden" name="address_country_code" data-geo="country_short" value="" />
+<input type="hidden" name="address_locality" data-geo="locality" value="" />
+<input type="hidden" name="address_sublocality" data-geo="sublocality" value="" />
+<input type="hidden" name="address_postal_code" data-geo="postal_code" value="" />
+<input type="hidden" name="address_route" data-geo="route" value="" />
+<input type="hidden" name="address_street_number" data-geo="street_number" value="" />
+<input type="hidden" name="address_subpremise" data-geo="subpremise" value="" />
+<input type="hidden" name="address_state" data-geo="administrative_area_level_1" value="" />
+<input type="hidden" name="address_state_code" data-geo="administrative_area_level_1_short" value="" />
+<input type="hidden" name="address_formatted" data-geo="formatted_address" value="" />
+<input type="hidden" name="address_latitude" data-geo="lat" value="" />
+<input type="hidden" name="address_longitude" data-geo="lng" value="" />
+</div></td></tr>"""
+        self.assertHTMLEqual(expected, actual)
 
 
 class AddressWidgetTestCase(TestCase):
