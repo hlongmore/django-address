@@ -43,10 +43,6 @@ def ensure_float(value, field):
 
 class AddressField(forms.ModelChoiceField):
     widget = AddressWidget
-    non_raw_fields = {
-        'country', 'country_code', 'state', 'state_code', 'locality', 'sublocality',
-        'postal_code', 'street_number', 'route', 'subpremise', 'latitude', 'longitude',
-    }
 
     def __init__(self, *args, **kwargs):
         kwargs['queryset'] = Address.objects.none()
@@ -69,9 +65,9 @@ class AddressField(forms.ModelChoiceField):
         # Treat `None`s and empty strings as empty.
         if value is None or value == '':
             return None
-        ensure_correct_datatypes(value)
         if self.try_geocode(value):
             value = GeocodeRaw(value['raw']).geocode()
+        ensure_correct_datatypes(value)
         return to_python(value)
 
 
