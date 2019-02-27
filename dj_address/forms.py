@@ -147,6 +147,9 @@ class GeocodeRaw:
             'latitude': result.get('geometry').get('location')['lat'],
             'longitude': result.get('geometry').get('location')['lng'],
         }
+        # Fix issue with sublocalities (e.g. NYC boroughs)
+        if not value.get('locality') and 'sublocality' in address_components:
+            value['locality'] = address_components.get('sublocality')
         return value
 
     def process_result(self, api_result):
@@ -195,14 +198,10 @@ class GeocodeRaw:
             ]
         )
 
-    def update_value(self, value, subpremise, formatted):
-        value['subpremise'] = subpremise
-        value['formatted'] = formatted
-
     def generate_formatted(self, value):
         try:
             return ('{street_number} {route} #{subpremise}, {locality}, '
-                    '{state_code} {postal_code}, {country_code}').format(value)
+                    '{state_code} {postal_code}, {country_code}').format(**value)
         except KeyError:
             # If we didn't have any of those already, it was a bad search anyway.
             return ''
@@ -220,7 +219,7 @@ class GeocodeRaw:
                 value, potential_error = self.process_result(r)
                 if potential_error:
                     potential_errors.append(potential_error)
-                    raw_subpremise = self.get_raw_subpremise(value['raw'])
+                    raw_subpremise = self.get_raw_subpremise(value['raw']).strip(',')
                     if not raw_subpremise:
                         # If the user wasn't trying to use a subpremise, all the following
                         # strategies are meaningless.
@@ -228,7 +227,8 @@ class GeocodeRaw:
                     returned_subpremise = value.get('subpremise')
                     if not returned_subpremise and settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE:
                         if self.usable_data(value):
-                            self.update_value(value, raw_subpremise, self.generate_formatted(value))
+                            value['subpremise'] = raw_subpremise
+                            value['formatted'] = self.generate_formatted(value)
                             potential_errors = []
                             break
                     if returned_subpremise:
@@ -244,7 +244,8 @@ class GeocodeRaw:
                             time.sleep(0.75)
                         elif settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY:
                             if self.usable_data(value):
-                                self.update_value(value, raw_subpremise, re_formatted)
+                                value['subpremise'] = raw_subpremise
+                                value['formatted'] = re_formatted
                                 potential_errors = []
                                 break
                 else:

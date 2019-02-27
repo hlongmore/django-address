@@ -86,6 +86,7 @@ class AddressFieldTestCase(TestCase):
     #     self.assertNotEqual(val.locality, None)
 
     def test_has_invalid_subpremise_in_raw(self):
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = False
         input = {
             'raw': '209 Joralemon Street #300, Brooklyn, NY, United States'
         }
@@ -94,6 +95,15 @@ class AddressFieldTestCase(TestCase):
                 'Only a partial match could be found for 209 Joralemon Street #300,'
                 ' Brooklyn, NY, United States') as e:
             self.field.to_python(input)
+
+    def test_has_invalid_subpremise_in_raw_ignore_missing(self):
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        input = {
+            'raw': '209 Joralemon Street #300, Brooklyn, NY, United States'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual('Brooklyn', res.locality.name)
+        self.assertEqual('300', res.subpremise)
 
     def test_too_many_results_from_geocode(self):
         input = {
@@ -152,6 +162,7 @@ class AddressFieldTestCase(TestCase):
     def test_retry_using_formatted_for_partial_match(self):
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
         settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = False
         input = {
             'country': '',
             'country_code': '',
@@ -172,6 +183,30 @@ class AddressFieldTestCase(TestCase):
                 'Only a partial match could be found for 10653 S River Front Pkwy #300 '
                 'South Jordan UT 84095'):
             self.field.to_python(input)
+
+    def test_retry_using_formatted_for_partial_match_ignore_missing(self):
+        settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
+        settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        input = {
+            'country': '',
+            'country_code': '',
+            'state': '',
+            'state_code': '',
+            'locality': '',
+            'sublocality': '',
+            'postal_code': '',
+            'route': '',
+            'street_number': '',
+            'subpremise': '',
+            'raw': '10653 S River Front Pkwy #300 South Jordan UT 84095'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual('300', res.subpremise)
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('10653', res.street_number)
+        self.assertEqual('S River Front Pkwy', res.route)
+        self.assertTrue('300' in res.formatted)
 
     def test_substitute_subpremise_raw_includes_country(self):
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
@@ -200,7 +235,7 @@ class AddressFieldTestCase(TestCase):
     def test_retry_using_formatted_raw_includes_country(self):
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
         settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
-        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = False
         input = {
             'country': '',
             'country_code': '',
@@ -221,6 +256,30 @@ class AddressFieldTestCase(TestCase):
                 'Only a partial match could be found for 10653 S River Front Pkwy #300, '
                 'South Jordan, UT 84095, USA'):
             self.field.to_python(input)
+
+    def test_retry_using_formatted_raw_includes_country_ignore_mising(self):
+        settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
+        settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        input = {
+            'country': '',
+            'country_code': '',
+            'state': '',
+            'state_code': '',
+            'locality': '',
+            'sublocality': '',
+            'postal_code': '',
+            'route': '',
+            'street_number': '',
+            'subpremise': '',
+            'raw': '10653 S River Front Pkwy #300, South Jordan, UT 84095, USA'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual('300', res.subpremise)
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('10653', res.street_number)
+        self.assertEqual('S River Front Pkwy', res.route)
+        self.assertTrue('300' in res.formatted)
 
     def test_geocode_all_fields_present_only_raw_has_data(self):
         input = {
