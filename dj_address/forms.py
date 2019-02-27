@@ -149,49 +149,6 @@ class GeocodeRaw:
         }
         return value
 
-    def geocode(self):
-        value = self.raw
-        potential_errors = []
-        if not self.can_geocode():
-            return value
-        tries = {'raw': self.raw, 'formatted': ''}
-        for t in tries:
-            data = {'address': tries[t].replace(' ', '+'), 'key': settings.GOOGLE_API_KEY}
-            r = requests.get(self.geocode_api, params=data, headers={'Cache-Control': 'no-cache'})
-            if r.status_code == requests.codes.ok:
-                value, potential_error = self.process_result(r)
-                if potential_error:
-                    potential_errors.append(potential_error)
-                    if value.get('subpremise'):
-                        raw_subpremise = self.get_raw_subpremise(value['raw'])
-                        other_subpremise = f"#{value['subpremise']}"
-                        re_formatted = value['formatted'].replace(other_subpremise, f'#{raw_subpremise}')
-                        if settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE:
-                            # Try again using the formatted address, but use the subpremise from the raw data.
-                            tries['formatted'] = re_formatted
-                            # Don't freak out the Google servers by submitting requests one right
-                            # after the other
-                            time.sleep(0.75)
-                        elif settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY:
-                            useable_address_data = all(
-                                [
-                                    self.raw.startswith(value['street_number']),
-                                    value.get('latitude'),
-                                    value.get('longitude'),
-                                ]
-                            )
-                            if useable_address_data:
-                                value['subpremise'] = raw_subpremise
-                                value['formatted'] = re_formatted
-                                potential_errors = []
-                                break
-                else:
-                    break
-        if potential_errors:
-            # Raise the original error.
-            raise potential_errors[0]
-        return value
-
     def process_result(self, api_result):
         # Most requests will succeed, as Google will try to find matches, so we have to check
         # the data to see if it is what we really wanted.
@@ -228,3 +185,71 @@ class GeocodeRaw:
         if hash_index > 2:
             return components[hash_index + 1]
         return ''
+
+    def usable_data(self, value):
+        return all(
+            [
+                self.raw.startswith(value['street_number']),
+                value.get('latitude'),
+                value.get('longitude'),
+            ]
+        )
+
+    def update_value(self, value, subpremise, formatted):
+        value['subpremise'] = subpremise
+        value['formatted'] = formatted
+
+    def generate_formatted(self, value):
+        try:
+            return ('{street_number} {route} #{subpremise}, {locality}, '
+                    '{state_code} {postal_code}, {country_code}').format(value)
+        except KeyError:
+            # If we didn't have any of those already, it was a bad search anyway.
+            return ''
+
+    def geocode(self):
+        value = self.raw
+        potential_errors = []
+        if not self.can_geocode():
+            return value
+        tries = {'raw': self.raw, 'formatted': ''}
+        for t in tries:
+            data = {'address': tries[t].replace(' ', '+'), 'key': settings.GOOGLE_API_KEY}
+            r = requests.get(self.geocode_api, params=data, headers={'Cache-Control': 'no-cache'})
+            if r.status_code == requests.codes.ok:
+                value, potential_error = self.process_result(r)
+                if potential_error:
+                    potential_errors.append(potential_error)
+                    raw_subpremise = self.get_raw_subpremise(value['raw'])
+                    if not raw_subpremise:
+                        # If the user wasn't trying to use a subpremise, all the following
+                        # strategies are meaningless.
+                        raise potential_error
+                    returned_subpremise = value.get('subpremise')
+                    if not returned_subpremise and settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE:
+                        if self.usable_data(value):
+                            self.update_value(value, raw_subpremise, self.generate_formatted(value))
+                            potential_errors = []
+                            break
+                    if returned_subpremise:
+                        re_formatted = value['formatted'].replace(
+                            f'#{returned_subpremise}',
+                            f'#{raw_subpremise}'
+                        )
+                        if settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE:
+                            # Try again using the formatted address, and the subpremise from the
+                            # raw data; don't freak out the Google servers by submitting requests
+                            # one right after the other.
+                            tries['formatted'] = re_formatted
+                            time.sleep(0.75)
+                        elif settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY:
+                            if self.usable_data(value):
+                                self.update_value(value, raw_subpremise, re_formatted)
+                                potential_errors = []
+                                break
+                else:
+                    break
+        if potential_errors:
+            # Raise the original error.
+            raise potential_errors[0]
+        return value

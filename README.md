@@ -46,7 +46,7 @@ data is correct if the correct street number was returned and the lat/long are
 defined, then change the subpremise to the user-specified value. These options
 are controlled by the settings:
 
-```
+```python
 # Deal with ambiguity for subpremise
 DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = False
 DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
@@ -60,6 +60,22 @@ subpremise substituted into the returned formatted address (making the address
 identical to the one used that gave the desired results) just gives the first
 result again.
 
+Sometimes the subpremise is not returned, perhaps because the country was included;
+in this case it may be best to ignore the missing subpremise, acting as if it had
+been returned. This is controlled by:
+
+```python
+DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+```
+
+For concrete examples of these inconsistencies, see the following unit tests:
+
+```python
+test_substitute_subpremise_for_partial_match
+test_retry_using_formatted_for_partial_match
+test_substitute_subpremise_raw_includes_country
+test_retry_using_formatted_raw_includes_country
+```
 
 
 ## The Model
