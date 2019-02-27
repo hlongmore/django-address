@@ -69,6 +69,7 @@ There are four Django models used:
     raw
     street_number
     route
+    subpremise
     locality -> Locality
 ```
 
@@ -114,6 +115,7 @@ The structure of the address components is as follows:
     'raw': '1 Somewhere Ave, Northcote, VIC 3070, AU',
     'street_number': '1',
     'route': 'Somewhere Ave',
+    'subpremise': '300',
     'locality': 'Northcote',
     'postal_code': '3070',
     'state': 'Victoria',
