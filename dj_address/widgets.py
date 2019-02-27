@@ -67,6 +67,9 @@ class AddressWidget(forms.TextInput):
 
         # Add a visible field for the raw input, and a suite of hidden fields
         # for each individual component.
+        # TODO: we could add a button that, on clicking, submits a request to the Google Geocode API
+        #       since the Autocomplete API doesn't handle subpremise, but for now I'll handle it
+        #       elsewhere.
         elems = [
             super(AddressWidget, self).render(name, ad.get('formatted', None), attrs, **kwargs)
         ]

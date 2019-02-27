@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as CoreValidationError
 from django.test import TestCase
 from django.forms import ValidationError, Form
 from dj_address.forms import AddressField, AddressWidget
@@ -51,7 +52,7 @@ class AddressFieldTestCase(TestCase):
         res = self.field.to_python(input)
         self.assertEqual(res.locality.name, 'Brooklyn')
 
-    def test_to_python_subpremise(self):
+    def test_to_python_subpremise_in_dict(self):
         input = {
             'country': 'United States',
             'country_code': 'US',
@@ -74,6 +75,35 @@ class AddressFieldTestCase(TestCase):
     #     val = self.field.to_python(self.missing_state)
     #     self.assertTrue(isinstance(val, Address))
     #     self.assertNotEqual(val.locality, None)
+
+    def test_has_invalid_subpremise_in_raw(self):
+        input = {
+            'raw': '209 Joralemon Street #300, Brooklyn, NY, United States'
+        }
+        with self.assertRaisesMessage(
+                CoreValidationError,
+                'Only a partial match could be found for 209 Joralemon Street #300,'
+                ' Brooklyn, NY, United States') as e:
+            self.field.to_python(input)
+
+    def test_too_many_results_from_geocode(self):
+        input = {
+            'raw': '1 Nowhere Street, Dublin, UT 84095'
+        }
+        with self.assertRaisesMessage(
+                CoreValidationError,
+                'Too many results for 1 Nowhere Street, Dublin, UT 84095'):
+            self.field.to_python(input)
+
+    def test_has_valid_subpremise_in_raw(self):
+        input = {
+            'raw': '10897 South River Front Parkway #200, South Jordan, UT'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual(res.locality.name, 'South Jordan')
+        self.assertEqual(res.subpremise, '200')
+        self.assertEqual(res.locality.postal_code, '84095')
+        self.assertEqual(res.route, 'S River Front Pkwy')
 
     def test_to_python(self):
         res = self.field.to_python({'raw': 'Someplace'})
