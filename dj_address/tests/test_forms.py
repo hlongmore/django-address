@@ -24,10 +24,12 @@ class AddressFieldTestCase(TestCase):
         }
         self.old_replace = settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY
         self.old_retry = settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE
+        self.old_ignore = settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE
 
     def tearDown(self):
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = self.old_replace
         settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = self.old_retry
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = self.old_ignore
 
     def test_to_python_none(self):
         self.assertEqual(self.field.to_python(None), None)
@@ -112,14 +114,19 @@ class AddressFieldTestCase(TestCase):
         self.assertEqual('84095', res.locality.postal_code)
         self.assertEqual('S River Front Pkwy', res.route)
 
+    # The next few tests deal with inconsistencies in the Google Geocode API. For example,
+    # sometimes what is submitted in the raw request will impact what is returned in unexpected
+    # ways. Consider the following two addresses, which are identical but for punctuation:
+    # 10653 S River Front Pkwy #300 South Jordan UT 84095
+    # vs.
+    # 10653 S River Front Pkwy #300, South Jordan, UT 84095
+    # The latter correctly gets subpremise = '300', the former gets subpremise = '100', which is
+    # valid for the street address, but not what we were looking for.
+    # Also, consider
+    # 10653 S River Front Pkwy #300, South Jordan, UT 84095, USA
+    # The only difference is between that and the middle one is the addition of ', USA'. But now no
+    # subpremise is returned.
     def test_substitute_subpremise_for_partial_match(self):
-        # Sometimes what is submitted in the raw request will impact what is returned in unexpected
-        # ways. Consider the following two addresses, which are identical but for punctuation:
-        # 10653 S River Front Pkwy #300 South Jordan UT 84095
-        # vs.
-        # 10653 S River Front Pkwy #300, South Jordan, UT 84095
-        # The latter correctly gets subpremise = '300', the former gets subpremise = '100', which is
-        # valid for the street address, but not what we were looking for.
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
         settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = False
         input = {
@@ -143,13 +150,6 @@ class AddressFieldTestCase(TestCase):
         self.assertTrue('300' in res.formatted)
 
     def test_retry_using_formatted_for_partial_match(self):
-        # Sometimes what is submitted in the raw request will impact what is returned in unexpected
-        # ways. Consider the following two addresses, which are identical but for punctuation:
-        # 10653 S River Front Pkwy #300 South Jordan UT 84095
-        # vs.
-        # 10653 S River Front Pkwy #300, South Jordan, UT 84095
-        # The latter correctly gets subpremise = '300', the former gets subpremise = '100', which is
-        # valid for the street address, but not what we were looking for.
         settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
         settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
         input = {
@@ -171,6 +171,55 @@ class AddressFieldTestCase(TestCase):
                 CoreValidationError,
                 'Only a partial match could be found for 10653 S River Front Pkwy #300 '
                 'South Jordan UT 84095'):
+            self.field.to_python(input)
+
+    def test_substitute_subpremise_raw_includes_country(self):
+        settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
+        settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = False
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        input = {
+            'country': '',
+            'country_code': '',
+            'state': '',
+            'state_code': '',
+            'locality': '',
+            'sublocality': '',
+            'postal_code': '',
+            'route': '',
+            'street_number': '',
+            'subpremise': '',
+            'raw': '10653 S River Front Pkwy #300, South Jordan, UT 84095, USA'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual('300', res.subpremise)
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('10653', res.street_number)
+        self.assertEqual('S River Front Pkwy', res.route)
+        self.assertTrue('300' in res.formatted)
+
+    def test_retry_using_formatted_raw_includes_country(self):
+        settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = False
+        settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = True
+        settings.DJ_ADDRESS_IGNORE_MISSING_SUBPREMISE = True
+        input = {
+            'country': '',
+            'country_code': '',
+            'state': '',
+            'state_code': '',
+            'locality': '',
+            'sublocality': '',
+            'postal_code': '',
+            'route': '',
+            'street_number': '',
+            'subpremise': '',
+            'raw': '10653 S River Front Pkwy #300, South Jordan, UT 84095, USA'
+        }
+        # If Google ever fixes the reliability of their API, this test should start failing with the
+        # expected error not being raised.
+        with self.assertRaisesMessage(
+                CoreValidationError,
+                'Only a partial match could be found for 10653 S River Front Pkwy #300, '
+                'South Jordan, UT 84095, USA'):
             self.field.to_python(input)
 
     def test_geocode_all_fields_present_only_raw_has_data(self):
