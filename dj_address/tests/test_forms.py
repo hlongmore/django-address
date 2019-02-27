@@ -140,6 +140,7 @@ class AddressFieldTestCase(TestCase):
         self.assertEqual(res.locality.name, 'South Jordan')
         self.assertEqual(res.street_number, '10653')
         self.assertEqual(res.route, 'S River Front Pkwy')
+        self.assertTrue('300' in res.formatted)
 
     def test_retry_using_formatted_for_partial_match(self):
         # Sometimes what is submitted in the raw request will impact what is returned in unexpected
