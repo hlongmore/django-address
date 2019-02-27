@@ -105,6 +105,25 @@ class AddressFieldTestCase(TestCase):
         self.assertEqual(res.locality.postal_code, '84095')
         self.assertEqual(res.route, 'S River Front Pkwy')
 
+    def test_geocode_all_fields_present_only_raw_has_data(self):
+        input = {
+            'country': '',
+            'country_code': '',
+            'state': '',
+            'state_code': '',
+            'locality': '',
+            'sublocality': '',
+            'postal_code': '',
+            'route': '',
+            'street_number': '',
+            'subpremise': '',
+            'raw': '10897 South River Front Parkway #200, South Jordan, UT'
+        }
+        res = self.field.to_python(input)
+        self.assertEqual(res.locality.name, 'South Jordan')
+        self.assertEqual(res.subpremise, '200')
+        self.assertEqual(res.locality.postal_code, '84095')
+
     def test_to_python(self):
         res = self.field.to_python({'raw': 'Someplace'})
         self.assertEqual(res.raw, 'Someplace')
