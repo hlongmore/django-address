@@ -180,3 +180,28 @@ The template:
   {{ form }}
 </body>
 ```
+
+## Notes
+
+The Google Geocoding API can handle subpremise where the Autocomplete API can't. If
+a subpremise is specified, the Geocoding API will be consulted. If it can't find an
+exact match, but it can find the right street address, there are two possible ways
+to proceed. The first is to retry the Geocoding API call, replacing the returned 
+subpremise with the subpremise from the raw data. The other is to just assume the
+data is correct if the correct street number was returned and the lat/long are
+defined, then change the subpremise to the user-specified value. These options
+are controlled by the settings:
+
+```
+# Deal with ambiguity for subpremise
+DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = False
+DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
+```
+
+The reason for allowing the choice is that retrying is currently unreliable. For
+an address that is formatted correctly and not missing data, the right data is 
+returned; however for that same address but with no commas, the correct street
+address is returned, but with a different subpremise. Retrying using the intended
+subpremise substituted into the returned formatted address (making the address 
+identical to the one used that gave the desired results) just gives the first
+result again.

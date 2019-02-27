@@ -74,6 +74,9 @@ WSGI_APPLICATION = 'example_site.wsgi.application'
 
 
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+# Deal with ambiguity for subpremise
+DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE = False
+DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY = True
 
 # Database
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases

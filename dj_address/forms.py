@@ -1,4 +1,5 @@
 import logging
+import time
 
 import requests
 from django import forms
@@ -149,28 +150,80 @@ class GeocodeRaw:
         return value
 
     def geocode(self):
+        value = self.raw
+        potential_errors = []
         if not self.can_geocode():
-            return self.raw
-        data = {'address': self.raw.replace(' ', '+'), 'key': settings.GOOGLE_API_KEY}
-        r = requests.get(self.geocode_api, params=data)
-        if r.status_code == requests.codes.ok:
-            # Most requests will succeed, as Google will try to find matches, so we have to check
-            # the data to see if it is what we really wanted.
-            results = r.json()['results']
-            self.verify_one_result(results)
-            result = results[0]
-            # Subpremise might result in a partial match.
-            potential_error = None
-            try:
-                self.verify_not_partial(result)
-            except forms.ValidationError as e:
-                potential_error = e
-            self.verify_not_approximate(result)
-            value = self.flatten(result)
-            if value['subpremise'] and value['subpremise'] in self.raw:
-                potential_error = None
-            if potential_error:
-                raise potential_error
-            ensure_correct_datatypes(value)
-            value['raw'] = self.raw
             return value
+        tries = {'raw': self.raw, 'formatted': ''}
+        for t in tries:
+            data = {'address': tries[t].replace(' ', '+'), 'key': settings.GOOGLE_API_KEY}
+            r = requests.get(self.geocode_api, params=data, headers={'Cache-Control': 'no-cache'})
+            if r.status_code == requests.codes.ok:
+                value, potential_error = self.process_result(r)
+                if potential_error:
+                    potential_errors.append(potential_error)
+                    if value.get('subpremise'):
+                        raw_subpremise = self.get_raw_subpremise(value['raw'])
+                        if settings.DJ_ADDRESS_SUBPREMISE_GEOCODE_RETRY_WITH_REPLACE:
+                            # Try again using the formatted address, but use the subpremise from the raw data.
+                            other_subpremise = f"#{value['subpremise']}"
+                            tries['formatted'] = value['formatted'].replace(
+                                other_subpremise, f'#{raw_subpremise}')
+                            # Don't freak out the Google servers by submitting requests one right
+                            # after the other
+                            time.sleep(0.75)
+                        elif settings.DJ_ADDRESS_SUBPREMISE_REPLACE_ONLY:
+                            useable_address_data = all(
+                                [
+                                    self.raw.startswith(value['street_number']),
+                                    value.get('latitude'),
+                                    value.get('longitude'),
+                                ]
+                            )
+                            if useable_address_data:
+                                value['subpremise'] = raw_subpremise
+                                potential_errors = []
+                                break
+                else:
+                    break
+        if potential_errors:
+            # Raise the original error.
+            raise potential_errors[0]
+        return value
+
+    def process_result(self, api_result):
+        # Most requests will succeed, as Google will try to find matches, so we have to check
+        # the data to see if it is what we really wanted.
+        results = api_result.json()['results']
+        self.verify_one_result(results)
+        result = results[0]
+        # A partial match could indicate the address includes a subpremise. Also, the correct
+        # address could be found but the wrong subpremise (e.g. by not having commas in 'raw'.
+        potential_error = None
+        try:
+            self.verify_not_partial(result)
+        except forms.ValidationError as e:
+            potential_error = e
+        self.verify_not_approximate(result)
+        value = self.flatten(result)
+        if value['subpremise'] and value['subpremise'] in self.raw:
+            potential_error = None
+        value['raw'] = self.raw
+        return value, potential_error
+
+    def get_raw_subpremise(self, raw):
+        """Try to find the subpremise, accounting for a possible space between the '#' and the
+        value. We're not going to try to get APT, STE, etc. here, just '#'.
+        """
+        hash_index = -1
+        components = raw.split()
+        for i, v in enumerate(components):
+            if v.startswith('#'):
+                v = v.replace('#', '').strip()
+                if v:
+                    return v
+                hash_index = i
+                break
+        if hash_index > 2:
+            return components[hash_index + 1]
+        return ''
