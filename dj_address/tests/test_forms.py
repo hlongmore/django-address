@@ -57,7 +57,7 @@ class AddressFieldTestCase(TestCase):
             'raw': '209 Joralemon Street, Brooklyn, NY, United States'
         }
         res = self.field.to_python(input)
-        self.assertEqual(res.locality.name, 'Brooklyn')
+        self.assertEqual('Brooklyn', res.locality.name)
 
     def test_to_python_subpremise_in_dict(self):
         input = {
@@ -74,8 +74,8 @@ class AddressFieldTestCase(TestCase):
             'raw': '209 Joralemon Street #300, Brooklyn, NY, United States'
         }
         res = self.field.to_python(input)
-        self.assertEqual(res.locality.name, 'Brooklyn')
-        self.assertEqual(res.subpremise, '300')
+        self.assertEqual('Brooklyn', res.locality.name)
+        self.assertEqual('300', res.subpremise)
 
     # TODO: Fix
     # def test_to_python_empty_state(self):
@@ -107,10 +107,10 @@ class AddressFieldTestCase(TestCase):
             'raw': '10897 South River Front Parkway #200, South Jordan, UT'
         }
         res = self.field.to_python(input)
-        self.assertEqual(res.locality.name, 'South Jordan')
-        self.assertEqual(res.subpremise, '200')
-        self.assertEqual(res.locality.postal_code, '84095')
-        self.assertEqual(res.route, 'S River Front Pkwy')
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('200', res.subpremise)
+        self.assertEqual('84095', res.locality.postal_code)
+        self.assertEqual('S River Front Pkwy', res.route)
 
     def test_substitute_subpremise_for_partial_match(self):
         # Sometimes what is submitted in the raw request will impact what is returned in unexpected
@@ -136,10 +136,10 @@ class AddressFieldTestCase(TestCase):
             'raw': '10653 S River Front Pkwy #300 South Jordan UT 84095'
         }
         res = self.field.to_python(input)
-        self.assertEqual(res.subpremise, '300')
-        self.assertEqual(res.locality.name, 'South Jordan')
-        self.assertEqual(res.street_number, '10653')
-        self.assertEqual(res.route, 'S River Front Pkwy')
+        self.assertEqual('300', res.subpremise)
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('10653', res.street_number)
+        self.assertEqual('S River Front Pkwy', res.route)
         self.assertTrue('300' in res.formatted)
 
     def test_retry_using_formatted_for_partial_match(self):
@@ -188,13 +188,13 @@ class AddressFieldTestCase(TestCase):
             'raw': '10897 South River Front Parkway #200, South Jordan, UT'
         }
         res = self.field.to_python(input)
-        self.assertEqual(res.locality.name, 'South Jordan')
-        self.assertEqual(res.subpremise, '200')
-        self.assertEqual(res.locality.postal_code, '84095')
+        self.assertEqual('South Jordan', res.locality.name)
+        self.assertEqual('200', res.subpremise)
+        self.assertEqual('84095', res.locality.postal_code)
 
     def test_to_python(self):
         res = self.field.to_python({'raw': 'Someplace'})
-        self.assertEqual(res.raw, 'Someplace')
+        self.assertEqual('Someplace', res.raw)
 
     def test_render(self):
         actual = self.form.as_table()
@@ -222,6 +222,6 @@ class AddressWidgetTestCase(TestCase):
 
     def test_attributes_set_correctly(self):
         wid = AddressWidget(attrs={'size': '150'})
-        self.assertEqual(wid.attrs['size'], '150')
+        self.assertEqual('150', wid.attrs['size'])
         html = wid.render('test', None)
-        self.assertNotEqual(html.find('size="150"'), -1)
+        self.assertNotEqual(-1, html.find('size="150"'))
