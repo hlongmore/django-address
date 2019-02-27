@@ -53,11 +53,15 @@ class AddressField(forms.ModelChoiceField):
         super().__init__(*args, **kwargs)
 
     def try_geocode(self, value):
-        """If we only have raw, see if we can do better using the Google Geocode API (Autocomplete
-        currently doesn't handle subpremise).
+        """If we only have raw, or raw is the only key whose value is not False in a boolean
+        context, see if we can do better using the Google Geocode API (Autocomplete currently
+        doesn't handle subpremise). This of course requires we have raw data.
         """
         if isinstance(value, dict):
-            if self.non_raw_fields & value.keys():
+            no_raw_no_empty = {k: v for k, v in value.items() if v and k != 'raw'}
+            if no_raw_no_empty:
+                return False
+            if not value.get('raw'):
                 return False
         return True
 
